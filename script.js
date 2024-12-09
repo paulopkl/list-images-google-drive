@@ -276,10 +276,10 @@ async function displayFiles(files) {
 
   for (const file of newest) {
     try {
+      imagesIdList.push(file.id);
+
       // Retry logic for loading thumbnails
       await loadImageWithRetry(file, container);
-
-      imagesIdList.push(file.id);
     } catch (error) {
       console.error(`Failed to load image ${file.name}:`, error);
     }
