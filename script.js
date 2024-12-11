@@ -1,19 +1,11 @@
 // TODO(developer): Set to client ID and API key from the Developer Console
-const CLIENT_ID =
-  "....apps.googleusercontent.com";
-const CLIENT_SECRET = "...";
-
-const API_KEY = "...";
-
-const FOLDER_ID = "...-...";
 
 // Discovery doc URL for APIs used by the quickstart
 const DISCOVERY_DOC = "https://docs.googleapis.com/$discovery/rest?version=v1";
 const DISCOVERY_DOC_2 =
   "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest";
 
-// Authorization scopes required by the API; multiple scopes can be
-// included, separated by spaces.
+// Authorization scopes required by the API; multiple scopes can be. Included, separated by spaces.
 const SCOPES = [
   "https://www.googleapis.com/auth/documents.readonly",
   "https://www.googleapis.com/auth/drive",
@@ -22,7 +14,8 @@ const SCOPES = [
 
 const REDIRECT_URI = "http://localhost:5500";
 
-const secondsToReload = 10;
+const secondsToReload = 15;
+const secondsToPassImage = 5;
 
 let tokenClient;
 let gapiInited = false;
@@ -30,45 +23,49 @@ let gisInited = false;
 
 let accessToken = null;
 
+const carouselViewport = document.querySelector(".carousel__viewport");
+const navigationList = document.querySelector(".carousel__navigation-list");
+
 // References to DOM elements
 const loginButton = document.getElementById("login-button");
-const imageContainer = document.getElementById("image-container");
+// const container = document.getElementById("file-container");
+const container = document.querySelector(".carousel__viewport");
 
 const imagesIdList = [];
 
 function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Function to exchange authorization code for tokens
 async function exchangeCodeForTokens(code) {
-  const tokenUrl = 'https://oauth2.googleapis.com/token';
-  
+  const tokenUrl = "https://oauth2.googleapis.com/token";
+
   const data = new URLSearchParams();
-  data.append('code', code);
-  data.append('client_id', CLIENT_ID);
-  data.append('client_secret', CLIENT_SECRET);
-  data.append('redirect_uri', REDIRECT_URI);
-  data.append('grant_type', 'authorization_code');  // This is for the exchange
+  data.append("code", code);
+  data.append("client_id", CLIENT_ID);
+  data.append("client_secret", CLIENT_SECRET);
+  data.append("redirect_uri", REDIRECT_URI);
+  data.append("grant_type", "authorization_code"); // This is for the exchange
 
   const response = await fetch(tokenUrl, {
-    method: 'POST',
+    method: "POST",
     body: data,
   });
 
   const responseData = await response.json();
-  
+
   if (response.ok) {
     const { access_token, refresh_token, expires_in } = responseData;
-    console.log('Access Token:', access_token);
-    console.log('Refresh Token:', refresh_token);
-    console.log('Expires in:', expires_in);
+    console.log("Access Token:", access_token);
+    console.log("Refresh Token:", refresh_token);
+    console.log("Expires in:", expires_in);
 
     // Save tokens to localStorage or sessionStorage
-    localStorage.setItem('access_token', access_token);
-    localStorage.setItem('refresh_token', refresh_token);
+    localStorage.setItem("access_token", access_token);
+    localStorage.setItem("refresh_token", refresh_token);
   } else {
-    console.error('Error fetching tokens:', responseData);
+    console.error("Error fetching tokens:", responseData);
   }
 }
 
@@ -100,14 +97,14 @@ function authenticateUser() {
 
       console.log(popupUrl);
 
-      if (popupUrl && popupUrl.includes('code=')) {
+      if (popupUrl && popupUrl.includes("code=")) {
         // Parse the authorization code from the redirect URI
         const urlParams = new URLSearchParams(popup.location.search);
-        const code = urlParams.get('code');
-        
+        const code = urlParams.get("code");
+
         // Exchange the authorization code for tokens
         exchangeCodeForTokens(code);
-        popup.close();  // Close the popup after successful authentication
+        popup.close(); // Close the popup after successful authentication
         clearInterval(pollInterval);
       }
     } catch (error) {
@@ -173,7 +170,8 @@ async function listFiles() {
     const params = new URLSearchParams({
       q: `'${FOLDER_ID}' in parents and mimeType contains 'image/'`,
       orderBy: "createdTime",
-      fields: "files(id,name,mimeType,thumbnailLink,createdTime)",
+      fields: "files(id,name,thumbnailLink,createdTime)",
+      // fields: "files(id,name,mimeType,thumbnailLink,webViewLink,webContentLink,createdTime)",
     });
 
     const response = await fetch(
@@ -187,8 +185,6 @@ async function listFiles() {
       }
     );
 
-    await delay(3000);
-
     if (!response.ok && response.status === 401) {
       accessToken = await refreshAccessToken();
 
@@ -197,7 +193,8 @@ async function listFiles() {
       return listFiles();
     }
 
-    if (!response.ok && response.status !== 401) throw new Error('Error fetching files from Google Drive');
+    if (!response.ok && response.status !== 401)
+      throw new Error("Error fetching files from Google Drive");
 
     const data = await response.json();
 
@@ -208,7 +205,7 @@ async function listFiles() {
   }
 }
 
-async function loadImageWithRetry(file, container, maxRetries = 50) {
+async function loadImageWithRetry(file, container, maxRetries = 5) {
   const delayBaseMs = 1000; // Base delay for exponential backoff
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -232,41 +229,19 @@ async function loadImageWithRetry(file, container, maxRetries = 50) {
       }
 
       // Exponential backoff with jitter
-      const delayMs = Math.min(delayBaseMs * Math.pow(2, attempt - 1), 10000) + Math.random() * 1000;
+      const delayMs =
+        Math.min(delayBaseMs * Math.pow(2, attempt - 1), 10000) +
+        Math.random() * 1000;
+
       console.log(`Retrying ${file.name} after ${Math.round(delayMs)}ms...`);
+
       await delay(delayMs);
     }
   }
 }
 
-// Function to preload and attach an image to the container
-function preloadAndAttachImage(file, container) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.src = file.thumbnailLink;
-    img.setAttribute("data-id", file.id); // Add a custom attribute to track the ID
-
-    img.onload = () => {
-      // Attach the image after successful preload
-      const link = document.createElement("a");
-      link.href = `https://drive.google.com/uc?export=view&id=${file.id}`;
-      link.target = "_blank";
-      link.appendChild(img);
-
-      container.prepend(link);
-      resolve();
-    };
-
-    img.onerror = (error) => {
-      reject(`Error loading image ${file.name}: ${error}`);
-    };
-  });
-}
-
 // Function to display files
 async function displayFiles(files) {
-  const container = document.getElementById("file-container");
-
   if (!files || files.length === 0) {
     container.innerHTML = "<p>No images found.</p>";
     return;
@@ -274,25 +249,16 @@ async function displayFiles(files) {
 
   const newest = files.filter((file) => !imagesIdList.includes(file.id));
 
-  for (const file of newest) {
-    try {
-      imagesIdList.push(file.id);
-
-      // Retry logic for loading thumbnails
-      await loadImageWithRetry(file, container);
-    } catch (error) {
-      console.error(`Failed to load image ${file.name}:`, error);
+  if (newest.length > 0) {
+    for (const file of newest) {
+      try {
+        await loadImageWithRetry(file, container); // Retry logic for loading thumbnails
+      } catch (error) {
+        console.error(`Failed to load image ${file.name}:`, error);
+      }
     }
   }
 }
-
-// Attach functions to buttons
-document
-  .getElementById("authorize-button")
-  .addEventListener("click", authenticateUser);
-document
-  .getElementById("fetch-images-button")
-  .addEventListener("click", listFiles);
 
 // Check token validity
 async function isTokenValid(token) {
@@ -306,6 +272,102 @@ async function isTokenValid(token) {
     return false;
   }
 }
+
+function preloadAndAttachImage(file, carouselViewport) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`img[data-id="${file.id}"]`)) {
+      console.log(`Image ${file.name} already exists in the container.`);
+      return resolve();
+    }
+
+    const alreadyHave = imagesIdList.includes(file.id);
+    if (!alreadyHave) {
+      const img = new Image();
+      img.src = file.thumbnailLink.replace(/=s\d*$/, "=s4000");
+
+      img.setAttribute("data-id", file.id); // Add a custom attribute to track the ID
+
+      img.onload = () => {
+        // Create a new slide
+        const slideIndex = carouselViewport.childElementCount + 1;
+
+        const slide = document.createElement("li");
+        slide.className = "carousel__slide";
+        slide.id = `carousel__slide${slideIndex}`;
+        slide.tabIndex = 0;
+
+        // Create the snapper container
+        const snapper = document.createElement("div");
+        snapper.className = "carousel__snapper";
+
+        // Previous button
+        if (carouselViewport.childElementCount > 0) {
+          const prevSlideId = `carousel__slide${slideIndex - 1}`;
+          
+          const prevButton = document.createElement("a");
+          prevButton.href = `#${prevSlideId}`;
+          prevButton.className = "carousel__prev";
+          prevButton.textContent = "";
+
+          snapper.appendChild(prevButton);
+        }
+
+        // Next button
+        const nextSlideId = `carousel__slide${slideIndex + 1}`; // Loop back to the first slide for the last one
+
+        const nextButton = document.createElement("a");
+        nextButton.href = `#${nextSlideId}`;
+        nextButton.className = "carousel__next";
+        nextButton.textContent = "";
+        snapper.appendChild(nextButton);
+
+        if (document.querySelector(`img[data-id="${file.id}"]`)) {
+          console.log(`Image ${file.name} already exists in the container.`);
+          return resolve();
+        }
+
+        // Append the image to the snapper
+        snapper.appendChild(img);
+        slide.appendChild(snapper);
+
+        // Append the slide to the viewport
+        carouselViewport.appendChild(slide);
+
+        // Create and add navigation buttons
+        const navItem = document.createElement("li");
+        navItem.className = "carousel__navigation-item";
+
+        const navButton = document.createElement("a");
+        navButton.href = `#carousel__slide${slideIndex}`;
+        navButton.className = "carousel__navigation-button";
+        navButton.textContent = `Go to slide ${slideIndex}`;
+
+        navItem.appendChild(navButton);
+
+        navigationList.appendChild(navItem);
+
+        imagesIdList.push(file.id);
+
+        goToSlide(slideIndex - 1);
+
+        resolve();
+      };
+
+      img.onerror = (error) => {
+        reject(`Error loading image ${file.name}: ${error}`);
+      };
+    } else {
+      resolve();
+    }
+  });
+}
+
+// Function to go to a specific slide
+const goToSlide = (index) => {
+  const targetSlide = document.querySelector(`#carousel__slide${index + 1}`);
+
+  if (targetSlide) targetSlide.scrollIntoView({ behavior: "smooth" });
+};
 
 // Initialize the app on page load
 async function initialize() {
@@ -329,9 +391,32 @@ async function initialize() {
   }
 }
 
+// Initialize the carousel
+const startAutoPass = () => {
+  let index = 0;
+
+  setInterval(() => {
+    if (index === imagesIdList.length) index = 0;
+
+    if (index < imagesIdList.length && imagesIdList.length > 0) {
+      //         addSlide(demoSlides[index]);
+      goToSlide(index);
+      index++;
+    }
+  }, secondsToPassImage * 1000); // Add a new slide every 3 seconds
+};
+
 // Check token validity and list files on page load
 window.onload = () => {
-  initialize;
+  startAutoPass();
 
   setInterval(initialize, secondsToReload * 1000); // 5000 milliseconds = 5 seconds
-}
+};
+
+// Attach functions to buttons
+document
+  .getElementById("authorize-button")
+  .addEventListener("click", authenticateUser);
+document
+  .getElementById("fetch-images-button")
+  .addEventListener("click", listFiles);

@@ -4,62 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Google Drive Images</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0px;
-    }
-
-    header {
-      background-color: rgb(222, 222, 222);
-      padding: 10px 12px;
-    }
-
-    header {
-      background-color: rgb(222, 222, 222);
-      padding: 10px 12px;
-    }
-
-    .images {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .images img {
-      width: 150px;
-      height: 150px;
-      object-fit: cover;
-    }
-
-    div#file-container {
-      margin-top: 20px;
-    }
-
-    div#file-container img {
-      max-width: 250px;
-      width: 250px;
-      height: 250px;
-      margin: 10px;
-      object-fit: cover;
-      border-radius: 20px;
-      border: 4px solid black;
-      box-shadow: 4px 4px 12px rgb(88, 88, 88);
-    }
-  </style>
+  <link rel="stylesheet" href="index.css">
 </head>
 <body>
-  <header class="">
-    <h1>Images from Google Drive</h1>
+  <header class="header">
+    <h1>List Images from Google Drive</h1>
+    <div class="buttons">
+      <button id="authorize-button">Sign in with Google</button>
+      <button id="fetch-images-button">Fetch Images</button>
+    </div>
   </header>
-
-  <div class="images" id="image-container"></div>
   
-  <button id="authorize-button">Sign in with Google</button>
-  <button id="fetch-images-button">Fetch Images</button>
-
-  <div id="file-container"></div>
-
+  <section class="carousel" aria-label="Gallery">
+    <ol class="carousel__viewport"></ol>
+    <aside class="carousel__navigation">
+      <ol class="carousel__navigation-list"></ol>
+    </aside>
+  </section>
+  
   <script src="script.js" async defer></script>
 </body>
 </html>
