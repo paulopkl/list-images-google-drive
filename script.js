@@ -282,7 +282,7 @@ function preloadAndAttachImage(file, carouselViewport) {
     const alreadyHave = imagesIdList.includes(file.id);
     if (!alreadyHave) {
       const img = new Image();
-
+      
       img.src = file.thumbnailLink.replace(/=s\d*$/, "=s4000");
 
       img.setAttribute("data-id", file.id); // Add a custom attribute to track the ID
