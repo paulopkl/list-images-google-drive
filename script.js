@@ -14,8 +14,9 @@ const SCOPES = [
 
 const REDIRECT_URI = "http://localhost:5500";
 
-const secondsToReload = 15;
+const secondsToReload = 12;
 const secondsToPassImage = 5;
+const maxRetries = 5;
 
 let tokenClient;
 let gapiInited = false;
@@ -34,7 +35,7 @@ const container = document.querySelector(".carousel__viewport");
 const imagesIdList = [];
 
 function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms * 1000));
 }
 
 // Function to exchange authorization code for tokens
@@ -162,16 +163,29 @@ async function listFiles() {
   const accessToken = localStorage.getItem("access_token");
 
   if (!accessToken) {
-    alert("Please authenticate first.");
+    console.log("Please authenticate first.");
     return;
   }
 
   try {
+    const allCreatedTimes = Array.from(document.querySelectorAll("img"))
+      .map((img) => img.attributes["data-created-time"].value)
+      .sort((a, b) => new Date(a) - new Date(b));
+
+    let q = `'${FOLDER_ID}' in parents and mimeType contains 'image/'`;
+
+    if (allCreatedTimes.length > 0) {
+      const highestCreatedTime = allCreatedTimes[allCreatedTimes.length - 1];
+
+      q += ` and createdTime >= '${highestCreatedTime}'`;
+    }
+
+    console.log(allCreatedTimes.length, { q });
+
     const params = new URLSearchParams({
-      q: `'${FOLDER_ID}' in parents and mimeType contains 'image/'`,
+      q: q,
       orderBy: "createdTime",
       fields: "files(id,name,thumbnailLink,createdTime)",
-      // fields: "files(id,name,mimeType,thumbnailLink,webViewLink,webContentLink,createdTime)",
     });
 
     const response = await fetch(
@@ -185,6 +199,8 @@ async function listFiles() {
       }
     );
 
+    console.log("response.status: ", response.status);
+    
     if (!response.ok && response.status === 401) {
       accessToken = await refreshAccessToken();
 
@@ -205,7 +221,7 @@ async function listFiles() {
   }
 }
 
-async function loadImageWithRetry(file, container, maxRetries = 5) {
+async function loadImageWithRetry(file, container) {
   const delayBaseMs = 1000; // Base delay for exponential backoff
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -242,12 +258,8 @@ async function loadImageWithRetry(file, container, maxRetries = 5) {
 
 // Function to display files
 async function displayFiles(files) {
-  if (!files || files.length === 0) {
-    container.innerHTML = "<p>No images found.</p>";
-    return;
-  }
-
   const newest = files.filter((file) => !imagesIdList.includes(file.id));
+  console.log({ files });
 
   if (newest.length > 0) {
     for (const file of newest) {
@@ -257,19 +269,6 @@ async function displayFiles(files) {
         console.error(`Failed to load image ${file.name}:`, error);
       }
     }
-  }
-}
-
-// Check token validity
-async function isTokenValid(token) {
-  try {
-    const response = await fetch(
-      `https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`
-    );
-    console.log({ response });
-    return response.ok;
-  } catch {
-    return false;
   }
 }
 
@@ -283,9 +282,11 @@ function preloadAndAttachImage(file, carouselViewport) {
     const alreadyHave = imagesIdList.includes(file.id);
     if (!alreadyHave) {
       const img = new Image();
+
       img.src = file.thumbnailLink.replace(/=s\d*$/, "=s4000");
 
       img.setAttribute("data-id", file.id); // Add a custom attribute to track the ID
+      img.setAttribute("data-created-time", file.createdTime); // Add a custom attribute to track the ID
 
       img.onload = () => {
         // Create a new slide
@@ -303,7 +304,7 @@ function preloadAndAttachImage(file, carouselViewport) {
         // Previous button
         if (carouselViewport.childElementCount > 0) {
           const prevSlideId = `carousel__slide${slideIndex - 1}`;
-          
+
           const prevButton = document.createElement("a");
           prevButton.href = `#${prevSlideId}`;
           prevButton.className = "carousel__prev";
@@ -369,27 +370,13 @@ const goToSlide = (index) => {
   if (targetSlide) targetSlide.scrollIntoView({ behavior: "smooth" });
 };
 
-// Initialize the app on page load
-async function initialize() {
-  const token = localStorage.getItem("access_token");
-
-  if (token) {
-    const valid = await isTokenValid(token);
-
-    if (valid) {
-      // Token is valid, list files
-      listFiles();
-    } else {
-      // Token expired, clear it and ask for re-authentication
-      const newAccessToken = await refreshAccessToken();
-      if (newAccessToken) listFiles();
-
-      initialize();
-    }
-  } else {
-    alert("No token found. Please authenticate.");
-  }
-}
+// Attach functions to buttons
+document
+  .getElementById("authorize-button")
+  .addEventListener("click", authenticateUser);
+document
+  .getElementById("fetch-images-button")
+  .addEventListener("click", listFiles);
 
 // Initialize the carousel
 const startAutoPass = () => {
@@ -410,13 +397,5 @@ const startAutoPass = () => {
 window.onload = () => {
   startAutoPass();
 
-  setInterval(initialize, secondsToReload * 1000); // 5000 milliseconds = 5 seconds
+  setInterval(listFiles, secondsToReload * 1000); // 5000 milliseconds = 5 seconds
 };
-
-// Attach functions to buttons
-document
-  .getElementById("authorize-button")
-  .addEventListener("click", authenticateUser);
-document
-  .getElementById("fetch-images-button")
-  .addEventListener("click", listFiles);
