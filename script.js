@@ -17,6 +17,7 @@ const REDIRECT_URI = "http://localhost:5500";
 const secondsToReload = 12;
 const secondsToPassImage = 5;
 const maxRetries = 5;
+const loadAll = true;
 
 let tokenClient;
 let gapiInited = false;
@@ -24,12 +25,9 @@ let gisInited = false;
 
 let accessToken = null;
 
-const carouselViewport = document.querySelector(".carousel__viewport");
-const navigationList = document.querySelector(".carousel__navigation-list");
-
 // References to DOM elements
+const navigationList = document.querySelector(".carousel__navigation-list");
 const loginButton = document.getElementById("login-button");
-// const container = document.getElementById("file-container");
 const container = document.querySelector(".carousel__viewport");
 
 const imagesIdList = [];
@@ -168,19 +166,19 @@ async function listFiles() {
   }
 
   try {
-    const allCreatedTimes = Array.from(document.querySelectorAll("img"))
-      .map((img) => img.attributes["data-created-time"].value)
-      .sort((a, b) => new Date(a) - new Date(b));
+    // const allCreatedTimes = Array.from(document.querySelectorAll("img"))
+    //   .map((img) => img.attributes["data-created-time"].value)
+    //   .sort((a, b) => new Date(a) - new Date(b));
 
     let q = `'${FOLDER_ID}' in parents and mimeType contains 'image/'`;
 
-    if (allCreatedTimes.length > 0) {
-      const highestCreatedTime = allCreatedTimes[allCreatedTimes.length - 1];
+    // if (allCreatedTimes.length > 0) {
+    //   const highestCreatedTime = allCreatedTimes[allCreatedTimes.length - 1];
 
-      q += ` and createdTime >= '${highestCreatedTime}'`;
-    }
+    //   q += ` and createdTime >= '${highestCreatedTime}'`;
+    // }
 
-    console.log(allCreatedTimes.length, { q });
+    // console.log(allCreatedTimes.length, { q });
 
     const params = new URLSearchParams({
       q: q,
@@ -221,7 +219,7 @@ async function listFiles() {
   }
 }
 
-async function loadImageWithRetry(file, container) {
+async function loadImageWithRetry(file) {
   const delayBaseMs = 1000; // Base delay for exponential backoff
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -233,12 +231,12 @@ async function loadImageWithRetry(file, container) {
       }
 
       // Attempt to load the image
-      await preloadAndAttachImage(file, container);
+      await preloadAndAttachImage(file);
       console.log(`Loaded image ${file.name} on attempt ${attempt}`);
 
       return; // Exit the function if successful
     } catch (error) {
-      console.warn(`Attempt ${attempt} failed for ${file.name}:`, error);
+      console.log(`Attempt ${attempt} failed for ${file.name}:`, error);
 
       if (attempt === maxRetries) {
         throw new Error(`Max retries reached for ${file.name}`);
@@ -264,7 +262,11 @@ async function displayFiles(files) {
   if (newest.length > 0) {
     for (const file of newest) {
       try {
-        await loadImageWithRetry(file, container); // Retry logic for loading thumbnails
+        if (loadAll) {
+          loadImageWithRetry(file); // Retry logic for loading thumbnails
+        } else if (loadAll) {
+          await loadImageWithRetry(file); // Retry logic for loading thumbnails
+        }
       } catch (error) {
         console.error(`Failed to load image ${file.name}:`, error);
       }
@@ -272,7 +274,7 @@ async function displayFiles(files) {
   }
 }
 
-function preloadAndAttachImage(file, carouselViewport) {
+function preloadAndAttachImage(file) {
   return new Promise((resolve, reject) => {
     if (document.querySelector(`img[data-id="${file.id}"]`)) {
       console.log(`Image ${file.name} already exists in the container.`);
@@ -290,7 +292,9 @@ function preloadAndAttachImage(file, carouselViewport) {
 
       img.onload = () => {
         // Create a new slide
-        const slideIndex = carouselViewport.childElementCount + 1;
+        const slideIndex = container && container.childElementCount + 1;
+
+        console.log({ slideIndex });
 
         const slide = document.createElement("li");
         slide.className = "carousel__slide";
@@ -302,7 +306,7 @@ function preloadAndAttachImage(file, carouselViewport) {
         snapper.className = "carousel__snapper";
 
         // Previous button
-        if (carouselViewport.childElementCount > 0) {
+        if (container && container.childElementCount > 0) {
           const prevSlideId = `carousel__slide${slideIndex - 1}`;
 
           const prevButton = document.createElement("a");
@@ -332,7 +336,7 @@ function preloadAndAttachImage(file, carouselViewport) {
         slide.appendChild(snapper);
 
         // Append the slide to the viewport
-        carouselViewport.appendChild(slide);
+        container.appendChild(slide);
 
         // Create and add navigation buttons
         const navItem = document.createElement("li");
