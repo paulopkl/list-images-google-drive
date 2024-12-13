@@ -18,7 +18,7 @@ const secondsToReload = 15;
 const secondsToPassImage = 5;
 const maxRetries = 5;
 const loadAll = true;
-const nextPageToken = null;
+let nextPageToken = null;
 
 let tokenClient;
 let gapiInited = false;
