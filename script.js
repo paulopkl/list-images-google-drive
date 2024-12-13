@@ -378,9 +378,9 @@ const goToSlide = (index) => {
 
 const openMenu = () => {
   document.getElementById("header").style.maxHeight = "";
-  document.getElementById("header").style.padding = "10px 8vw";
+  document.getElementById("header").style.padding = "1vh 8vw";
   
-  document.querySelector("section.carousel").style.paddingTop = "85vh"
+  document.querySelector("section.carousel").style.paddingTop = "88vh"
   
   document.querySelector("svg.svg-menu-opened").style.display = "none";
   document.querySelector("svg.svg-menu-closed").style.display = "block";
@@ -419,7 +419,6 @@ const startAutoPass = () => {
     if (index === imagesIdList.length) index = 0;
 
     if (index < imagesIdList.length && imagesIdList.length > 0) {
-      //         addSlide(demoSlides[index]);
       goToSlide(index);
       index++;
     }
