@@ -14,10 +14,11 @@ const SCOPES = [
 
 const REDIRECT_URI = "http://localhost:5500";
 
-const secondsToReload = 12;
+const secondsToReload = 15;
 const secondsToPassImage = 5;
 const maxRetries = 5;
 const loadAll = true;
+const nextPageToken = null;
 
 let tokenClient;
 let gapiInited = false;
@@ -166,25 +167,23 @@ async function listFiles() {
   }
 
   try {
-    // const allCreatedTimes = Array.from(document.querySelectorAll("img"))
-    //   .map((img) => img.attributes["data-created-time"].value)
-    //   .sort((a, b) => new Date(a) - new Date(b));
+    const moreThan900Images = document.querySelectorAll("img") && Array.from(document.querySelectorAll("img"))?.length > 900;
 
-    let q = `'${FOLDER_ID}' in parents and mimeType contains 'image/'`;
+    let fields = "";
 
-    // if (allCreatedTimes.length > 0) {
-    //   const highestCreatedTime = allCreatedTimes[allCreatedTimes.length - 1];
-
-    //   q += ` and createdTime >= '${highestCreatedTime}'`;
-    // }
-
-    // console.log(allCreatedTimes.length, { q });
+    if (moreThan900Images) fields = "nextPageToken, files(id,name,thumbnailLink,createdTime)";
+    else fields = "files(id,name,thumbnailLink,createdTime)";
 
     const params = new URLSearchParams({
-      q: q,
+      q: `'${FOLDER_ID}' in parents and mimeType contains 'image/'`,
       orderBy: "createdTime",
-      fields: "files(id,name,thumbnailLink,createdTime)",
+      fields: fields,
+      pageSize: 1000,
     });
+
+    if (moreThan900Images && nextPageToken) {
+      params.append("pageToken", nextPageToken);
+    }
 
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
@@ -198,7 +197,7 @@ async function listFiles() {
     );
 
     console.log("response.status: ", response.status);
-    
+
     if (!response.ok && response.status === 401) {
       accessToken = await refreshAccessToken();
 
@@ -211,6 +210,8 @@ async function listFiles() {
       throw new Error("Error fetching files from Google Drive");
 
     const data = await response.json();
+
+    if (nextPageToken == null && data?.nextPageToken) nextPageToken = data.nextPageToken;
 
     displayFiles(data.files);
   } catch (error) {
@@ -258,6 +259,7 @@ async function loadImageWithRetry(file) {
 async function displayFiles(files) {
   const newest = files.filter((file) => !imagesIdList.includes(file.id));
   console.log({ files });
+  console.log({ newest });
 
   if (newest.length > 0) {
     for (const file of newest) {
@@ -284,7 +286,7 @@ function preloadAndAttachImage(file) {
     const alreadyHave = imagesIdList.includes(file.id);
     if (!alreadyHave) {
       const img = new Image();
-      
+
       img.src = file.thumbnailLink.replace(/=s\d*$/, "=s4000");
 
       img.setAttribute("data-id", file.id); // Add a custom attribute to track the ID
@@ -374,6 +376,26 @@ const goToSlide = (index) => {
   if (targetSlide) targetSlide.scrollIntoView({ behavior: "smooth" });
 };
 
+const openMenu = () => {
+  document.getElementById("header").style.maxHeight = "";
+  document.getElementById("header").style.padding = "10px 8vw";
+  
+  document.querySelector("section.carousel").style.paddingTop = "85vh"
+  
+  document.querySelector("svg.svg-menu-opened").style.display = "none";
+  document.querySelector("svg.svg-menu-closed").style.display = "block";
+};
+
+const closeMenu = () => {
+  document.getElementById("header").style.maxHeight = "0px";
+  document.getElementById("header").style.padding = "0px";
+
+  document.querySelector("section.carousel").style.paddingTop = "98vh"
+
+  document.querySelector("svg.svg-menu-opened").style.display = "block";
+  document.querySelector("svg.svg-menu-closed").style.display = "none";
+};
+
 // Attach functions to buttons
 document
   .getElementById("authorize-button")
@@ -381,6 +403,13 @@ document
 document
   .getElementById("fetch-images-button")
   .addEventListener("click", listFiles);
+
+document
+  .querySelector("svg.svg-menu-opened")
+  .addEventListener("click", openMenu);
+document
+  .querySelector("svg.svg-menu-closed")
+  .addEventListener("click", closeMenu);
 
 // Initialize the carousel
 const startAutoPass = () => {

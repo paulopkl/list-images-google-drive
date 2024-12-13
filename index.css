@@ -32,11 +32,36 @@ body {
 
 header.header {
   background-color: rgba(222, 222, 222, 0.221);
-  padding: 10px 12px;
+  padding: 10px 8vw;
   display: flex;
   justify-content: space-between;
-  padding-inline: 10vw;
   align-items: center;
+
+  overflow-y: hidden;
+  transition: max-height 3s ease;
+}
+
+.svg-menu-opened,
+.svg-menu-closed
+{
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 9999;
+}
+
+.svg-menu-opened {
+  border: 2px solid black;
+  padding: 6px;
+  cursor: pointer;
+  display: none;
+}
+
+.svg-menu-closed {
+  border: 2px solid black;
+  padding: 6px;
+  cursor: pointer;
+  display: block;
 }
 
 header button {
