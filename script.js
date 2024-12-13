@@ -14,7 +14,7 @@ const SCOPES = [
 
 const REDIRECT_URI = "http://localhost:5500";
 
-const secondsToReload = 15;
+const secondsToReload = 12;
 const secondsToPassImage = 5;
 const maxRetries = 5;
 const loadAll = true;
@@ -216,7 +216,7 @@ async function listFiles() {
     displayFiles(data.files);
   } catch (error) {
     console.error(error);
-    alert("Failed to fetch files. Check the console for details.");
+    console.warn("Failed to fetch files. Check the console for details.");
   }
 }
 
