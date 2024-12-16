@@ -1,4 +1,10 @@
 // TODO(developer): Set to client ID and API key from the Developer Console
+const CLIENT_ID = "....apps.googleusercontent.com";
+const CLIENT_SECRET = "...-...";
+
+const API_KEY = "...";
+
+const FOLDER_ID = "...-...";
 
 // Discovery doc URL for APIs used by the quickstart
 const DISCOVERY_DOC = "https://docs.googleapis.com/$discovery/rest?version=v1";

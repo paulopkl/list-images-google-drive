@@ -189,6 +189,7 @@ li {
   flex-direction: row;
   max-width: 98vw;
   scrollbar-color: auto;
+  justify-content: center;
 }
 
 .carousel__navigation-button {
